@@ -46,20 +46,23 @@ outputs:
           then: pkg-config
         - if: unix
           then: bison
+        # m2-* packages are the MSYS2 POSIX-layer tools available on conda-forge.
+        # m2w64-bison, m2w64-flex, m2w64-diffutils do NOT exist on conda-forge;
+        # m2-bison, m2-flex, m2-make etc. are the correct packages to use.
         - if: win
           then: m2-base
         - if: win
-          then: m2w64-make
+          then: m2-make
         - if: win
-          then: m2w64-bison
+          then: m2-bison
         - if: win
-          then: m2w64-flex
+          then: m2-flex
         - if: win
-          then: m2w64-pkg-config
+          then: m2-pkg-config
         - if: win
-          then: m2w64-diffutils
+          then: m2-diffutils
         - if: win
-          then: perl 5.*
+          then: m2-perl
         - icu
       host:
         - icu
@@ -185,20 +188,23 @@ outputs:
           then: pkg-config
         - if: unix
           then: bison
+        # m2-* packages are the MSYS2 POSIX-layer tools available on conda-forge.
+        # m2w64-bison, m2w64-flex, m2w64-diffutils do NOT exist on conda-forge;
+        # m2-bison, m2-flex, m2-make etc. are the correct packages to use.
         - if: win
           then: m2-base
         - if: win
-          then: m2w64-make
+          then: m2-make
         - if: win
-          then: m2w64-bison
+          then: m2-bison
         - if: win
-          then: m2w64-flex
+          then: m2-flex
         - if: win
-          then: m2w64-pkg-config
+          then: m2-pkg-config
         - if: win
-          then: m2w64-diffutils
+          then: m2-diffutils
         - if: win
-          then: perl 5.*
+          then: m2-perl
         - icu
       host:
         - icu
