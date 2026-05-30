@@ -1,0 +1,294 @@
+schema_version: 1
+
+context:
+  version: "18.4"
+  pqver: "5.18"
+
+package:
+  name: postgresql-split
+  version: ${{ version }}
+
+source:
+  url: https://ftp.postgresql.org/pub/source/v${{ version }}/postgresql-${{ version }}.tar.bz2
+  sha256: 81a81ec695fb0c7901407defaa1d2f7973617154cf27ba74e3a7ab8e64436094
+  patches:
+    - patches/0002-disable-new-dtags.patch
+    - if: win
+      then:
+        - patches/fix_x509_name_win.patch
+
+build:
+  number: 0
+
+requirements:
+  build:
+    - if: build_platform != target_platform
+      then:
+        - python
+        - cross-python_${{ target_platform }}
+    - if: unix
+      then: gnuconfig
+    - if: osx
+      then: lld
+    - if: win
+      then:
+        - ${{ compiler('m2w64_c') }}
+        - ${{ stdlib('m2w64_c') }}
+      else:
+        - ${{ compiler('c') }}
+        - ${{ stdlib('c') }}
+    - if: unix
+      then:
+        - make
+        - pkg-config
+        - bison
+    - if: win
+      then:
+        - m2-base
+        - m2w64-make
+        - m2w64-bison
+        - m2w64-flex
+        - m2w64-pkg-config
+        - m2w64-diffutils
+        - perl 5.*
+    - icu
+  host:
+    - icu
+    - if: linux
+      then: liburing
+    - libxml2-devel
+    - libxslt
+    - krb5
+    - if: not win
+      then: openldap
+    - openssl
+    - lz4-c
+    - zlib
+    - zstd
+    - if: not win
+      then:
+        - libuuid
+        - readline
+        - tzcode
+        - tzdata
+  run:
+    - krb5
+    - if: not win
+      then:
+        - openldap
+        - readline
+        - tzcode
+        - tzdata
+    - openssl
+
+outputs:
+  - package:
+      name: libpq
+    build:
+      script: install_runtime.sh
+    requirements:
+      build:
+        - if: unix
+          then: gnuconfig
+        - if: osx
+          then: lld
+        - if: win
+          then:
+            - ${{ compiler('m2w64_c') }}
+            - ${{ stdlib('m2w64_c') }}
+          else:
+            - ${{ compiler('c') }}
+            - ${{ stdlib('c') }}
+        - if: unix
+          then:
+            - make
+            - pkg-config
+            - bison
+        - if: win
+          then:
+            - m2-base
+            - m2w64-make
+            - m2w64-bison
+            - m2w64-flex
+            - m2w64-pkg-config
+            - m2w64-diffutils
+            - perl 5.*
+        - icu
+      host:
+        - icu
+        - krb5
+        - if: not win
+          then: openldap
+        - openssl
+        - if: not win
+          then:
+            - tzcode
+            - tzdata
+      run_exports:
+        - ${{ pin_subpackage('libpq') }}
+    tests:
+      - script:
+          - pg_config
+          - if: linux
+            then:
+              - test -f $PREFIX/lib/libpq.so.${{ pqver }}
+              - test -f $PREFIX/lib/libpq.so.5
+              - test -f $PREFIX/lib/libpq.so
+          - if: osx
+            then:
+              - test -f $PREFIX/lib/libpq.5.dylib
+              - test -f $PREFIX/lib/libpq.dylib
+          - if: win
+            then:
+              - test -f "${PREFIX}/Library/bin/libpq.dll"
+              - test -f "${PREFIX}/Library/bin/pg_config.exe"
+    about:
+      summary: The postgres runtime libraries and utilities (not the server itself)
+      license: PostgreSQL
+      license_file: COPYRIGHT
+
+  - package:
+      name: postgresql
+    build:
+      script: install_db.sh
+    requirements:
+      build:
+        - if: unix
+          then: gnuconfig
+        - if: osx
+          then: lld
+        - if: win
+          then:
+            - ${{ compiler('m2w64_c') }}
+            - ${{ stdlib('m2w64_c') }}
+          else:
+            - ${{ compiler('c') }}
+            - ${{ stdlib('c') }}
+        - if: unix
+          then:
+            - make
+            - pkg-config
+            - bison
+        - if: win
+          then:
+            - m2-base
+            - m2w64-make
+            - m2w64-bison
+            - m2w64-flex
+            - m2w64-pkg-config
+            - m2w64-diffutils
+            - perl 5.*
+        - icu
+      host:
+        - icu
+        - if: linux
+          then: liburing
+        - libxml2-devel
+        - libxslt
+        - krb5
+        - if: not win
+          then: openldap
+        - openssl
+        - lz4-c
+        - zlib
+        - zstd
+        - if: not win
+          then:
+            - readline
+            - tzcode
+            - tzdata
+        - ${{ pin_subpackage('libpq', exact=True) }}
+      run:
+        - ${{ pin_subpackage('libpq', exact=True) }}
+        - if: not win
+          then:
+            - tzcode
+            - tzdata
+      run_exports:
+        - ${{ pin_subpackage('libpq') }}
+    tests:
+      - requirements:
+          run:
+            - if: linux
+              then: binutils
+        script:
+          - postgres --help
+          - if: unix
+            then:
+              - export TEST_DIR=./test_postgres
+              - initdb -D $TEST_DIR
+              - pg_ctl -D $TEST_DIR -l logfile start || cat ./logfile
+              - pg_ctl -D $TEST_DIR stop
+          - if: linux
+            then: nm -D $(which postgres) | grep -q palloc0 || exit 1
+    about:
+      summary: PostgreSQL is a powerful, open source object-relational database system.
+      license: PostgreSQL
+      license_file: COPYRIGHT
+
+  - package:
+      name: postgresql-plpython
+    build:
+      script: install_plpython.sh
+      skip:
+        - win
+    requirements:
+      build:
+        - if: build_platform != target_platform
+          then:
+            - python
+            - cross-python_${{ target_platform }}
+        - if: unix
+          then: gnuconfig
+        - if: osx
+          then: lld
+        - ${{ compiler('c') }}
+        - ${{ stdlib('c') }}
+        - if: unix
+          then:
+            - make
+            - pkg-config
+            - bison
+        - icu
+      host:
+        - icu
+        - libxml2-devel
+        - libxslt
+        - krb5
+        - openldap
+        - openssl
+        - lz4-c
+        - zlib
+        - zstd
+        - libuuid
+        - readline
+        - ${{ pin_subpackage('postgresql', exact=True) }}
+        - python
+      run:
+        - ${{ pin_subpackage('postgresql', exact=True) }}
+        - python
+      run_exports:
+        - ${{ pin_subpackage('postgresql-plpython') }}
+    tests:
+      - script:
+          - python -c "import plpy" || true
+    about:
+      summary: The plpythonu postgresql extension
+      license: PostgreSQL
+      license_file: COPYRIGHT
+
+about:
+  home: http://www.postgresql.org/
+  license: PostgreSQL
+  license_file: COPYRIGHT
+  summary: multi-output recipe for postgresql
+
+extra:
+  recipe-maintainers:
+    - akrherz
+    - flaviomartins
+    - gillins
+    - msarahan
+    - ocefpaf
+    - mariusvniekerk
+    - sodre

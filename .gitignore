@@ -13,6 +13,7 @@
 !/**/
 # Don't ignore any files/folders recursively in the following folders
 !/recipe/**
+!/recipe-v1/**
 !/.ci_support/**
 
 # Since we ignore files/folders recursively, any folders inside
