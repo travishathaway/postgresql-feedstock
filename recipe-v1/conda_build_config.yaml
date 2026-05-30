@@ -1,11 +1,11 @@
 # rattler-build variant configuration for postgresql-split
 #
-# Windows: use the MinGW-w64 GCC compiler stack instead of MSVC.
-# The m2w64_c_compiler / m2w64_c_stdlib variables are picked up by
-# ${{ compiler('m2w64_c') }} and ${{ stdlib('m2w64_c') }} in recipe.yaml.
+# Windows: MinGW-w64 GCC compiler stack (m2w64_c_compiler) replaces MSVC.
+# The m2w64_c_compiler / m2w64_c_stdlib variables are picked up by the
+# ${{ compiler('m2w64_c') }} and ${{ stdlib('m2w64_c') }} calls in recipe.yaml.
 
 # -----------------------------------------------------------------------
-# Windows – MinGW-w64 toolchain
+# Windows — MinGW-w64 GCC toolchain
 # -----------------------------------------------------------------------
 m2w64_c_compiler:           # [win]
   - gcc                     # [win]
@@ -17,7 +17,7 @@ m2w64_c_stdlib_version:     # [win]
   - 12                      # [win]
 
 # -----------------------------------------------------------------------
-# macOS – keep clang 20 (unchanged from original recipe)
+# macOS — keep clang 20 (unchanged from original recipe)
 # -----------------------------------------------------------------------
 MACOSX_SDK_VERSION:         # [osx and x86_64]
   - 11.0                    # [osx and x86_64]
@@ -27,7 +27,7 @@ lld:                        # [osx]
   - 20.1                    # [osx]
 
 # -----------------------------------------------------------------------
-# Shared dependency pins (all platforms unless noted)
+# Shared dependency pins
 # -----------------------------------------------------------------------
 icu:
   - '78'

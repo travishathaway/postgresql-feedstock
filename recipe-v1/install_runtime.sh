@@ -1,14 +1,14 @@
 #!/bin/bash
 set -exo pipefail
 
-# Install everything from the full build, then strip it down to only the
-# files that belong in the libpq package:
-#   - libpq shared library
-#   - pg_config helper binary
+# install_runtime.sh — installs only the libpq shared library and pg_config.
 #
-# On Windows (MinGW) the layout under $PREFIX/Library mirrors the Unix
-# layout under $PREFIX, so we use a single code-path with an
-# INSTALL_PREFIX variable.
+# Strategy: run `make install`, then strip down the installation to just the
+# two files owned by the libpq package.  Everything else (server binaries,
+# contrib modules, headers, etc.) will be installed by the postgresql output.
+#
+# On Windows (MinGW) files land under $PREFIX/Library/ (Windows ecosystem
+# layout).  On Unix they land directly under $PREFIX.
 
 if [[ "${target_platform}" == win* ]]; then
     INSTALL_PREFIX="${PREFIX}/Library"
@@ -19,40 +19,25 @@ fi
 make install
 
 # -----------------------------------------------------------------------
-# Prune the install to just the libpq runtime + pg_config.
-# Save the files we want to keep, wipe the rest, then restore.
+# Prune to libpq library + pg_config only.
 # -----------------------------------------------------------------------
 mkdir -p backup/bin
 
 if [[ "${target_platform}" == win* ]]; then
-    # MinGW installs the shared library as:
-    #   $INSTALL_PREFIX/bin/libpq.dll
-    #   $INSTALL_PREFIX/lib/libpq.dll.a   (import library)
-    # and the config helper as:
-    #   $INSTALL_PREFIX/bin/pg_config.exe
+    # MinGW names the shared library libpq.dll and places it in bin/.
+    # The import library is libpq.dll.a in lib/.
+    # pg_config.exe is also in bin/.
+    cp "${INSTALL_PREFIX}/bin/libpq.dll"      backup/bin/
+    cp "${INSTALL_PREFIX}/bin/pg_config.exe"  backup/bin/
 
-    cp "${INSTALL_PREFIX}/bin/libpq.dll"       backup/bin/
-    cp "${INSTALL_PREFIX}/bin/pg_config.exe"   backup/bin/
-    cp -r "${INSTALL_PREFIX}/lib"              backup/lib || true
-    cp -r "${INSTALL_PREFIX}/include"          backup/include || true
-
-    # Remove everything under the install prefix, then restore only what
-    # the libpq package should own.
-    rm -rf "${INSTALL_PREFIX:?}/bin"
-    rm -rf "${INSTALL_PREFIX:?}/share"
-    # Keep lib and include (they were backed up above and will be restored)
-
-    mkdir -p "${INSTALL_PREFIX}/bin"
+    # Wipe all executables from bin/ then restore just our two files.
+    rm -f "${INSTALL_PREFIX}/bin/"*.exe "${INSTALL_PREFIX}/bin/"*.dll
     mv backup/bin/libpq.dll     "${INSTALL_PREFIX}/bin/"
     mv backup/bin/pg_config.exe "${INSTALL_PREFIX}/bin/"
-
-    # Restore import library and headers (needed for downstream builds).
-    # The full lib/ and include/ trees are left in place by the install;
-    # we only clean out executables, not libs/headers.
-
 else
-    # Unix: save pg_config, wipe bin/, restore it.
+    # On Unix, keep pg_config in bin/ and leave the shared library in lib/.
+    # Wipe the rest of bin/ (all server executables).
     cp "${INSTALL_PREFIX}/bin/pg_config" backup/bin/
-    rm -rf "${INSTALL_PREFIX:?}/bin/"*
+    rm -rf "${INSTALL_PREFIX}/bin/"*
     mv backup/bin/pg_config "${INSTALL_PREFIX}/bin/"
 fi

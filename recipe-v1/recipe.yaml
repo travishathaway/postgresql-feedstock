@@ -2,9 +2,10 @@ schema_version: 1
 
 context:
   version: "18.4"
+  # pqver = "5.<major>" e.g. "5.18" for PostgreSQL 18.x
   pqver: "5.18"
 
-package:
+recipe:
   name: postgresql-split
   version: ${{ version }}
 
@@ -13,9 +14,10 @@ source:
   sha256: 81a81ec695fb0c7901407defaa1d2f7973617154cf27ba74e3a7ab8e64436094
   patches:
     - patches/0002-disable-new-dtags.patch
+    # setenv patches are NOT needed with MinGW — its POSIX layer provides setenv().
+    # The X509_NAME macro conflict from <wincrypt.h> still applies with MinGW.
     - if: win
-      then:
-        - patches/fix_x509_name_win.patch
+      then: patches/fix_x509_name_win.patch
 
 build:
   number: 0
@@ -23,34 +25,41 @@ build:
 requirements:
   build:
     - if: build_platform != target_platform
-      then:
-        - python
-        - cross-python_${{ target_platform }}
+      then: python
+    - if: build_platform != target_platform
+      then: cross-python_${{ target_platform }}
     - if: unix
       then: gnuconfig
     - if: osx
       then: lld
+    # Windows: MinGW-w64 GCC compiler stack instead of MSVC
     - if: win
-      then:
-        - ${{ compiler('m2w64_c') }}
-        - ${{ stdlib('m2w64_c') }}
-      else:
-        - ${{ compiler('c') }}
-        - ${{ stdlib('c') }}
+      then: ${{ compiler('m2w64_c') }}
+      else: ${{ compiler('c') }}
+    - if: win
+      then: ${{ stdlib('m2w64_c') }}
+      else: ${{ stdlib('c') }}
     - if: unix
-      then:
-        - make
-        - pkg-config
-        - bison
+      then: make
+    - if: unix
+      then: pkg-config
+    - if: unix
+      then: bison
+    # Windows MinGW build tools (autoconf/make based — no meson/ninja/MSVC)
     - if: win
-      then:
-        - m2-base
-        - m2w64-make
-        - m2w64-bison
-        - m2w64-flex
-        - m2w64-pkg-config
-        - m2w64-diffutils
-        - perl 5.*
+      then: m2-base
+    - if: win
+      then: m2w64-make
+    - if: win
+      then: m2w64-bison
+    - if: win
+      then: m2w64-flex
+    - if: win
+      then: m2w64-pkg-config
+    - if: win
+      then: m2w64-diffutils
+    - if: win
+      then: perl 5.*
     - icu
   host:
     - icu
@@ -65,91 +74,33 @@ requirements:
     - lz4-c
     - zlib
     - zstd
+    # vc (MSVC runtime) is not needed with MinGW — GCC runtime is propagated
+    # automatically via the m2w64_c compiler run_exports.
     - if: not win
-      then:
-        - libuuid
-        - readline
-        - tzcode
-        - tzdata
+      then: libuuid
+    - if: not win
+      then: readline
+    - if: not win
+      then: tzcode
+    - if: not win
+      then: tzdata
   run:
     - krb5
     - if: not win
-      then:
-        - openldap
-        - readline
-        - tzcode
-        - tzdata
+      then: openldap
     - openssl
+    - if: not win
+      then: readline
+    - if: not win
+      then: tzcode
+    - if: not win
+      then: tzdata
 
 outputs:
   - package:
-      name: libpq
-    build:
-      script: install_runtime.sh
-    requirements:
-      build:
-        - if: unix
-          then: gnuconfig
-        - if: osx
-          then: lld
-        - if: win
-          then:
-            - ${{ compiler('m2w64_c') }}
-            - ${{ stdlib('m2w64_c') }}
-          else:
-            - ${{ compiler('c') }}
-            - ${{ stdlib('c') }}
-        - if: unix
-          then:
-            - make
-            - pkg-config
-            - bison
-        - if: win
-          then:
-            - m2-base
-            - m2w64-make
-            - m2w64-bison
-            - m2w64-flex
-            - m2w64-pkg-config
-            - m2w64-diffutils
-            - perl 5.*
-        - icu
-      host:
-        - icu
-        - krb5
-        - if: not win
-          then: openldap
-        - openssl
-        - if: not win
-          then:
-            - tzcode
-            - tzdata
-      run_exports:
-        - ${{ pin_subpackage('libpq') }}
-    tests:
-      - script:
-          - pg_config
-          - if: linux
-            then:
-              - test -f $PREFIX/lib/libpq.so.${{ pqver }}
-              - test -f $PREFIX/lib/libpq.so.5
-              - test -f $PREFIX/lib/libpq.so
-          - if: osx
-            then:
-              - test -f $PREFIX/lib/libpq.5.dylib
-              - test -f $PREFIX/lib/libpq.dylib
-          - if: win
-            then:
-              - test -f "${PREFIX}/Library/bin/libpq.dll"
-              - test -f "${PREFIX}/Library/bin/pg_config.exe"
-    about:
-      summary: The postgres runtime libraries and utilities (not the server itself)
-      license: PostgreSQL
-      license_file: COPYRIGHT
-
-  - package:
       name: postgresql
     build:
+      # Single unified .sh script — runs under bash on Unix and MSYS2 on Windows.
       script: install_db.sh
     requirements:
       build:
@@ -158,26 +109,31 @@ outputs:
         - if: osx
           then: lld
         - if: win
-          then:
-            - ${{ compiler('m2w64_c') }}
-            - ${{ stdlib('m2w64_c') }}
-          else:
-            - ${{ compiler('c') }}
-            - ${{ stdlib('c') }}
-        - if: unix
-          then:
-            - make
-            - pkg-config
-            - bison
+          then: ${{ compiler('m2w64_c') }}
+          else: ${{ compiler('c') }}
         - if: win
-          then:
-            - m2-base
-            - m2w64-make
-            - m2w64-bison
-            - m2w64-flex
-            - m2w64-pkg-config
-            - m2w64-diffutils
-            - perl 5.*
+          then: ${{ stdlib('m2w64_c') }}
+          else: ${{ stdlib('c') }}
+        - if: unix
+          then: make
+        - if: unix
+          then: pkg-config
+        - if: unix
+          then: bison
+        - if: win
+          then: m2-base
+        - if: win
+          then: m2w64-make
+        - if: win
+          then: m2w64-bison
+        - if: win
+          then: m2w64-flex
+        - if: win
+          then: m2w64-pkg-config
+        - if: win
+          then: m2w64-diffutils
+        - if: win
+          then: perl 5.*
         - icu
       host:
         - icu
@@ -193,17 +149,18 @@ outputs:
         - zlib
         - zstd
         - if: not win
-          then:
-            - readline
-            - tzcode
-            - tzdata
+          then: readline
+        - if: not win
+          then: tzcode
+        - if: not win
+          then: tzdata
         - ${{ pin_subpackage('libpq', exact=True) }}
       run:
         - ${{ pin_subpackage('libpq', exact=True) }}
         - if: not win
-          then:
-            - tzcode
-            - tzdata
+          then: tzcode
+        - if: not win
+          then: tzdata
       run_exports:
         - ${{ pin_subpackage('libpq') }}
     tests:
@@ -214,11 +171,13 @@ outputs:
         script:
           - postgres --help
           - if: unix
-            then:
-              - export TEST_DIR=./test_postgres
-              - initdb -D $TEST_DIR
-              - pg_ctl -D $TEST_DIR -l logfile start || cat ./logfile
-              - pg_ctl -D $TEST_DIR stop
+            then: export TEST_DIR=./test_postgres
+          - if: unix
+            then: initdb -D $TEST_DIR
+          - if: unix
+            then: pg_ctl -D $TEST_DIR -l logfile start || cat ./logfile
+          - if: unix
+            then: pg_ctl -D $TEST_DIR stop
           - if: linux
             then: nm -D $(which postgres) | grep -q palloc0 || exit 1
     about:
@@ -229,15 +188,15 @@ outputs:
   - package:
       name: postgresql-plpython
     build:
-      script: install_plpython.sh
       skip:
         - win
+      script: install_plpython.sh
     requirements:
       build:
         - if: build_platform != target_platform
-          then:
-            - python
-            - cross-python_${{ target_platform }}
+          then: python
+        - if: build_platform != target_platform
+          then: cross-python_${{ target_platform }}
         - if: unix
           then: gnuconfig
         - if: osx
@@ -245,10 +204,11 @@ outputs:
         - ${{ compiler('c') }}
         - ${{ stdlib('c') }}
         - if: unix
-          then:
-            - make
-            - pkg-config
-            - bison
+          then: make
+        - if: unix
+          then: pkg-config
+        - if: unix
+          then: bison
         - icu
       host:
         - icu
@@ -271,17 +231,89 @@ outputs:
         - ${{ pin_subpackage('postgresql-plpython') }}
     tests:
       - script:
-          - python -c "import plpy" || true
+          - python -c "import psycopg2" || true
     about:
       summary: The plpythonu postgresql extension
       license: PostgreSQL
       license_file: COPYRIGHT
 
+  - package:
+      name: libpq
+    build:
+      script: install_runtime.sh
+    requirements:
+      build:
+        - if: unix
+          then: gnuconfig
+        - if: osx
+          then: lld
+        - if: win
+          then: ${{ compiler('m2w64_c') }}
+          else: ${{ compiler('c') }}
+        - if: win
+          then: ${{ stdlib('m2w64_c') }}
+          else: ${{ stdlib('c') }}
+        - if: unix
+          then: make
+        - if: unix
+          then: pkg-config
+        - if: unix
+          then: bison
+        - if: win
+          then: m2-base
+        - if: win
+          then: m2w64-make
+        - if: win
+          then: m2w64-bison
+        - if: win
+          then: m2w64-flex
+        - if: win
+          then: m2w64-pkg-config
+        - if: win
+          then: m2w64-diffutils
+        - if: win
+          then: perl 5.*
+        - icu
+      host:
+        - icu
+        - krb5
+        - if: not win
+          then: openldap
+        - openssl
+        - if: not win
+          then: tzcode
+        - if: not win
+          then: tzdata
+      run_exports:
+        - ${{ pin_subpackage('libpq') }}
+    tests:
+      - script:
+          - pg_config
+          - if: linux
+            then: test -f $PREFIX/lib/libpq.so.${{ pqver }}
+          - if: linux
+            then: test -f $PREFIX/lib/libpq.so.5
+          - if: linux
+            then: test -f $PREFIX/lib/libpq.so
+          - if: osx
+            then: test -f $PREFIX/lib/libpq.5.dylib
+          - if: osx
+            then: test -f $PREFIX/lib/libpq.dylib
+          # MinGW installs DLLs under Library/bin (Windows ecosystem layout)
+          - if: win
+            then: test -f "$PREFIX/Library/bin/libpq.dll"
+          - if: win
+            then: test -f "$PREFIX/Library/bin/pg_config.exe"
+    about:
+      summary: The postgres runtime libraries and utilities (not the server itself)
+      license: PostgreSQL
+      license_file: COPYRIGHT
+
 about:
-  home: http://www.postgresql.org/
   license: PostgreSQL
   license_file: COPYRIGHT
   summary: multi-output recipe for postgresql
+  homepage: http://www.postgresql.org/
 
 extra:
   recipe-maintainers:
