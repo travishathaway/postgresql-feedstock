@@ -47,16 +47,15 @@ outputs:
         - if: unix
           then: bison
         # m2-* packages are the MSYS2 POSIX-layer tools available on conda-forge.
-        # m2w64-bison, m2w64-flex, m2w64-diffutils do NOT exist on conda-forge;
-        # m2-bison, m2-flex, m2-make etc. are the correct packages to use.
+        # m2-bison and m2-flex do NOT exist as modern packages — they carry an
+        # msys2-conda-epoch==20160418 constraint that conflicts with gcc_win-64 14+.
+        # winflexbison provides win_bison.exe and win_flex.exe and is epoch-free.
         - if: win
           then: m2-base
         - if: win
           then: m2-make
         - if: win
-          then: m2-bison
-        - if: win
-          then: m2-flex
+          then: winflexbison
         - if: win
           then: m2-pkg-config
         - if: win
@@ -189,16 +188,15 @@ outputs:
         - if: unix
           then: bison
         # m2-* packages are the MSYS2 POSIX-layer tools available on conda-forge.
-        # m2w64-bison, m2w64-flex, m2w64-diffutils do NOT exist on conda-forge;
-        # m2-bison, m2-flex, m2-make etc. are the correct packages to use.
+        # m2-bison and m2-flex do NOT exist as modern packages — they carry an
+        # msys2-conda-epoch==20160418 constraint that conflicts with gcc_win-64 14+.
+        # winflexbison provides win_bison.exe and win_flex.exe and is epoch-free.
         - if: win
           then: m2-base
         - if: win
           then: m2-make
         - if: win
-          then: m2-bison
-        - if: win
-          then: m2-flex
+          then: winflexbison
         - if: win
           then: m2-pkg-config
         - if: win

@@ -62,6 +62,14 @@ if [[ "${target_platform}" == win* ]]; then
     EXTRA_CONFIG_ARGS+=" --host=x86_64-w64-mingw32"
     EXTRA_CONFIG_ARGS+=" --build=x86_64-w64-mingw32"
 
+    # winflexbison installs win_bison.exe and win_flex.exe under
+    # $BUILD_PREFIX/Library/bin.  Point PostgreSQL's configure at them
+    # and tell win_bison where to find its skeleton data files.
+    WIN_TOOLS_BIN="${BUILD_PREFIX}/Library/bin"
+    export BISON="${WIN_TOOLS_BIN}/win_bison.exe"
+    export FLEX="${WIN_TOOLS_BIN}/win_flex.exe"
+    export BISON_PKGDATADIR="${WIN_TOOLS_BIN}/data"
+
     ./configure \
         --prefix="${INSTALL_PREFIX}" \
         --with-libraries="${INSTALL_PREFIX}/lib" \
